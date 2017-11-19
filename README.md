@@ -14,6 +14,11 @@ feerate     blocks  hours  fiat
 0.00149164  2       0.33   3.6288916248
 ```
 
+* `feerate`: the feerate for `settxfee`, eg: `bitcoin-cli settxfee 0.00021095`
+* `blocks`: the estimated number of blocks until first confirmation
+* `hours`: the estimated number of hours until first confirmation
+* `fiat`: the estimated fee (in fiat) based on current BTC/USD exchange rate
+
 ## Installation
 
   Copy `fees` to your bin path
