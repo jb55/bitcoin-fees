@@ -12,6 +12,15 @@ estimate_mode=${2:-UNSET}
 size=${3:-226}
 price=${4:-$(getprice)}
 
+case $estimate_mode in
+c)
+    estimate_mode=CONSERVATIVE
+    ;;
+e)
+    estimate_mode=ECONOMICAL
+    ;;
+esac
+
 for x in $(seq 1 $n)
 do
   bitcoin-cli estimatesmartfee $x "$estimate_mode"
