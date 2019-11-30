@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+
+BITCOIN_RPCUSER=${BITCOIN_RPCUSER:-rpcuser}
+BITCOIN_RPCPASS=${BITCOIN_RPCPASS:-rpcpass}
+BITCOIN_RPCPORT=${BITCOIN_RPCPORT:-8332}
+BITCOIN_RPCHOST=${BITCOIN_RPCHOST:-127.0.0.1}
+
+getprice () {
+  # replace with your preferred exchange
+  curl -sL 'https://api.bitfinex.com/v2/tickers?symbols=tBTCUSD' | jq '.[0][1]'
+  #curl -sL 'https://api.quadrigacx.com/v2/ticker' | jq -r .last
+}
+
+n=${1:-100}
+estimate_mode=${2:-UNSET}
+size=${3:-226}
+price=${4:-$(getprice)}
+
+case $estimate_mode in
+c)
+    estimate_mode=CONSERVATIVE
+    ;;
+e)
+    estimate_mode=ECONOMICAL
+    ;;
+esac
+
+
+mkreq () {
+  tmpreq="$(mktemp)"
+  (
+    printf '['
+    echo ${1#","}
+    printf ']'
+  ) > "$tmpreq"
+  printf "%s\n" "$tmpreq"
+}
+
+doreq() {
+  req=$(mkreq "$1")
+  curl -s -u $BITCOIN_RPCUSER:$BITCOIN_RPCPASS \
+    --data-binary @"$req" -H 'content-type: text/plain;' "http://${BITCOIN_RPCHOST}:${BITCOIN_RPCPORT}"
+  rm -f "$req"
+}
+
+estimates=$(seq 1 $n)
+
+estimate_reqs=$(
+    <<<"$estimates" xargs printf ",{\"jsonrpc\": \"1.0\", \"id\":\"blockfees\", \"method\": \"estimatesmartfee\", \"params\": [%d, \"$estimate_mode\"] }\n"
+)
+
+  #| sed -e 's,\(0.[0-9]\+\),"\1",g'
+
+doreq "$estimate_reqs" \
+  | jq -r ".[].result | [\"feerate\", \"blocks\", \"hours\", \"fiat\", \"sats\"],[.feerate, .blocks, (((.blocks * 10)/60)*100 | floor)/100, (.feerate | tonumber | ((. * $size)/1000) * $price), (.feerate | tonumber | . * $size * 100000 | round) ] | @tsv" \
+  | sort -n -u -t$'\t' -k1,1 \
+  | column -t -s $'\t'
